@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>大线排料项目的核心代码（包含了分支界定算法的实现） by chaocong0723</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">大线排料项目的核心代码（包含了分支界定算法的实现）</h1>
+      <h2 class="project-tagline">This is my blog</h2>
+      <a href="https://github.com/chaocong0723/Bolg" class="btn">View on GitHub</a>
+      <a href="https://github.com/chaocong0723/Bolg/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/chaocong0723/Bolg/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <p>public void method_2(int selection ){
+        int yyd=0;
+        ArrayList failList = new ArrayList();
+        String str = null;
+        if(selection==1){
+            str = "use information select 项目号,车型,车号,部位,线束号,线型线径,颜色1,颜色2,线号,全长,序号 from config order by 线型线径,cast(全长 as float)";
+        }
+        if(selection == 2){
+            str = "use information select * from replenish order by 线型线径,cast(全长 as float)";
+        }</p>
+
+<pre><code>    String[][] initData = null;//存放配线尺寸表信息
+    String str1 = "use information Truncate Table crop";
+    String str2 = "use information Truncate Table replenish";
+    String str3 = "use information Truncate Table secondCrop";
+    try {
+
+
+
+        Statement ssm=getConn().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+
+        if(selection == 1){
+            ssm.execute(str1);
+            ssm.execute(str2);
+        }else{
+            ssm.execute(str3);
+        }
+    ssm.close();
+        //把配线尺寸表信息放入一个二维数组
+        int kl=0;int xuhaore=0;
+        ko: while(kl==0){
+        Statement stmt = getConn().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+        ResultSet rs = stmt.executeQuery(str);
+        int k = 0;
+        String[] head = Constants.configHead;
+        System.out.println("按长度升序配线尺寸表");
+        while(rs.next()){
+            k++;
+            System.out.println(rs.getString("车型")+","+rs.getString("车号")+","+rs.getString("部位")+","+rs.getString("线束号")
+                    +","+rs.getString("线型线径")+","+rs.getString("颜色1")+","+rs.getString("颜色2")+","+rs.getString("线号")+","+rs.getString("全长"));
+        }
+
+        rs.first();
+        rs.previous();
+        if(k&gt;0){
+            initData = new String[k][head.length+1];//initData存储所有配线尺寸表信息
+
+        }else{
+            JOptionPane.showMessageDialog(null, "没有需要进行下料的信息！");
+            return;
+        }
+
+        int i = 0;
+        while(rs.next()){
+            initData[i][10]=rs.getString("序号");
+            for(int j=0;j&lt;10;j++){
+
+                    initData[i][j] = rs.getString(head[j+1]);
+
+            }
+            i++;    
+        }
+
+        rs.close();
+        stmt.close();
+        //拆分
+        ArrayList&lt;String[][]&gt; list = new ArrayList&lt;String[][]&gt;();//二维动态数组list 存放相同线径配线信息
+        ArrayList&lt;Integer&gt; breakpointTable = new ArrayList&lt;Integer&gt;();//存放原始二维数组中不同线型线径的区分点位置
+        for(int j1=0;j1&lt;k-1;j1++){
+            if(!initData[j1+1][5].equals(initData[j1][5])){
+                breakpointTable.add(j1+1);
+            }
+        }
+        //System.out.println(breakpointTable.size()+1);
+        if(breakpointTable.size()&gt;0){
+            Integer[] groupInf = new Integer[breakpointTable.size()];//存放间隔点
+            breakpointTable.toArray(groupInf);
+            //System.out.println("注意！！！！！！！！！！！！"+groupInf[1]+breakpointTable.size());
+            for(int j2=0;j2&lt;groupInf.length+1;j2++){
+                if(j2 == 0){
+                    String[][] object1 = new String[groupInf[0]][head.length];
+                    for(int k1=0;k1&lt;groupInf[0];k1++){
+                        for(int k2=0;k2&lt;head.length;k2++){
+                            object1[k1][k2] = initData[k1][k2];
+                        }
+                    }
+                    list.add(object1);
+                }
+                if(j2&gt;0 &amp;&amp; j2 &lt; groupInf.length){
+                    String[][] object2 = new String[groupInf[j2]-groupInf[j2-1]][head.length];
+                    for(int k3=groupInf[j2-1];k3&lt;groupInf[j2];k3++){
+                        for(int k4=0;k4&lt;head.length;k4++){
+                            object2[k3-groupInf[j2-1]][k4] = initData[k3][k4];
+                        }
+                    }
+                    list.add(object2);
+                }
+                if(j2 == groupInf.length){
+                    String[][] object3 = new String[k-groupInf[j2-1]][head.length];
+                    for(int k5=groupInf[j2-1];k5&lt;k;k5++){
+                        for(int k6=0;k6&lt;head.length;k6++){
+                            object3[k5-groupInf[j2-1]][k6] = initData[k5][k6];
+                        }
+                    }
+                    list.add(object3);
+                }
+            }   
+        }else{
+            list.add(initData);
+        }
+
+        /*下料开始前，先进行判断原材料库是否满足要求
+         * 
+         */
+
+        //先判断一下所需的线型线径是否都有
+        //*********************************************************************************
+            Iterator&lt;String[][]&gt; iterator_0 = list.iterator();//存放不同线型线径二维数组的列表的遍历
+
+            Statement statemnt_0 = getConn().createStatement();
+            ArrayList&lt;String&gt; wireList = new ArrayList&lt;String&gt;();//存放原材料信息库中不存在的线型线径信息
+            while(iterator_0.hasNext()){
+                String[][] agent_0 = iterator_0.next();//存放相同线型线径配线信息的数组
+                String lineFlag_0 = (String) agent_0[0][5];//线型线径
+                if(lineFlag_0!=null){
+                    statemnt_0 = getConn().createStatement();
+                    String infQuery_0 = "use information select * from message where 线型线径='"+lineFlag_0+"'";
+                    ResultSet result_0 = statemnt_0.executeQuery(infQuery_0);
+
+                    if(!result_0.next()){
+                        wireList.add(lineFlag_0);
+                    }
+                }
+            }
+            statemnt_0.close();
+            if(!wireList.isEmpty()){
+                Iterator wireIterator = wireList.iterator();
+                String warning = "";
+                while(wireIterator.hasNext()){
+                    warning = warning + wireIterator.next()+" ";
+                }
+                JOptionPane.showMessageDialog(null,"原材料信息库中没有"+warning+"线型线径的线辊！");
+                return;
+            }
+            // 相同线型线径     判断最长的第一段长度  是否大于最短的配线
+             iterator111111 = list.iterator();  
+             Statement mntt = getConn().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+                while(iterator111111.hasNext()){
+                    String[][] agent12 = (String[][]) iterator111111.next();//存放同一种线型线径配线信息的数组
+                    String lineFlag12 = (String) agent12[0][5];//该数组的线型线径
+                    String infQuery12 = "use information select * from message where 线型线径='"+lineFlag12+"'" +"order by cast(第1段长度 as float)";
+                    ResultSet result12 = mntt.executeQuery(infQuery12);//存放符合上述线型线径信息的线辊结果集
+                //  System.out.println(infQuery12);
+                //  while(result.next()){
+                    //  System.out.println(result.getString("断点1长度"));
+                //  }
+                    int length = 0;
+                    while(result12.next()){
+                        length++;
+                    }
+                    String[] mHead = Constants.materialsHead;
+                    String[][] infData = new String[length][Constants.materialsHead.length];
+                    result12.first();
+                    result12.previous();
+                    int l=0;int hhj=1;
+                    //System.out.println("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"+hhj);
+                    while(result12.next()){
+                    //  System.out.println("YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"+hhj);
+                            for(int col=0;col&lt;mHead.length;col++){
+                                infData[l][col]= result12.getString(mHead[col]);
+                            }
+                            l++;
+                    }
+
+                            if(Float.valueOf((String) agent12[0][9])&gt;Float.valueOf((String) infData[infData.length-1][6])){//最短配线长度大于最长第一段长度
+                                int lk=0;
+                            for(int ij=0;ij&lt;infData.length;ij++){
+
+
+                                if(Float.valueOf((String) agent12[0][9])&lt;=Float.valueOf((String) infData[ij][8])){
+                                    lk=1;
+                                Connection connection = getConn();
+                                connection.setAutoCommit(false);
+                                    String yuliao = infData[ij][6];
+                                    infData[ij][6] = infData[ij][8];
+                                    infData[ij][8] = infData[ij][10];
+                                    infData[ij][10] = infData[ij][12];
+                                    infData[ij][12] = infData[ij][14];
+                                    infData[ij][14] = infData[ij][16];
+                                    infData[ij][16] = "0";
+
+                                    String cunliang=String.valueOf(Float.valueOf((String)infData[ij][6])+Float.valueOf((String)infData[ij][8])+Float.valueOf((String)infData[ij][10])+Float.valueOf((String)infData[ij][12])
+                                            +Float.valueOf((String)infData[ij][14])+Float.valueOf((String)infData[ij][16]));
+                                    String update = "use information update message set 第1段长度="+infData[ij][6]+","+"第2段长度="+infData[ij][8]+","+"第3段长度="+infData[ij][10]+","+
+                                    "第4段长度="+infData[ij][12]+","+"第5段长度="+infData[ij][14]+","+"第6段长度="+infData[ij][16]+","+"存量="+cunliang+" where 线辊号="+infData[ij][1];
+                            Statement st1 = con.createStatement();
+                            st1.execute(update);
+                            connection.commit();
+
+                            }
+
+
+                            }
+                            if(lk==0&amp;&amp;yyd==0){
+
+                                JOptionPane.showMessageDialog(null,"原材料信息库中线型线径为"+agent12[0][5]+"的线棍余料不足，请更换线棍后再进行下料！");
+                                return;
+                            }else if(lk==0&amp;&amp;yyd!=0){
+
+                                for(int jf=0;jf&lt;agent12.length;jf++){
+                                    String replenish = "use information insert into replenish values("+"N'"+agent12[jf][0]+"',"+"N'"+agent12[jf][1]+"',"
+                                            +"N'"+agent12[jf][2]+"',"+"N'"+agent12[jf][3]+"',"+"N'"+agent12[jf][4]+"',"+"N'"+agent12[jf][5]+"',"+"N'"+agent12[jf][6]+"',"+
+                                                    "N'"+agent12[jf][7]+"',"+"N'"+agent12[jf][8]+"',"+"N'"+agent12[jf][9]+"',"+"N'"+xuhaore+"')";
+                                    xuhaore++;
+                                //  System.out.println(replenish+"TTTTTTTTTTTTTTTTTTjjjjjjjjjjjjjjjjjjjjTTTTTTTTTTTTTT");
+                                    Statement rep = this.getConn().createStatement();
+                                    rep.execute(replenish);
+                                    rep.close();
+                                    failList.add(agent12[jf][5]);
+                                    con.setAutoCommit(false);
+                                    String update = null;
+                                    if(selection==1){
+                                     update = "use information delete from config where 序号="+agent12[jf][10];
+                                    }else if(selection==2){
+                                        update = "use information delete from replenish where 序号="+agent12[jf][10];
+                                    }  
+                                    // System.out.println(update);
+                                        Statement st1 = con.createStatement();
+                                        st1.execute(update);
+                                        st1.close();
+                                        con.commit(); 
+                                        failList.add(agent12[jf][5]);
+                                }
+
+                                Object[][] obj=getData2();
+                                 if(obj[0][3]==null){
+                                        MainWindow.canvas0.setBackground(Color.GRAY);
+                                        MainWindow.canvas0.repaint();
+                                    }else if(Float.valueOf((String)obj[0][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas0.setBackground(Color.RED);
+                                        MainWindow.canvas0.repaint();
+                                    }else{
+                                        MainWindow.canvas0.setBackground(Color.GREEN);
+                                        MainWindow.canvas0.repaint();
+                                    }
+                                    if(obj[1][3]==null){
+                                        MainWindow.canvas1.setBackground(Color.GRAY);
+                                        MainWindow.canvas1.repaint();
+                                    }else if(Float.valueOf((String)obj[1][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas1.setBackground(Color.RED);
+                                        MainWindow.canvas1.repaint();
+                                    }else{
+                                        MainWindow.canvas1.setBackground(Color.GREEN);
+                                        MainWindow.canvas1.repaint();
+                                    }
+                                    if(obj[2][3]==null){
+                                        MainWindow.canvas2.setBackground(Color.GRAY);
+                                        MainWindow.canvas2.repaint();
+                                    }else if(Float.valueOf((String)obj[2][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas2.setBackground(Color.RED);
+                                        MainWindow.canvas2.repaint();
+                                    }else{
+                                        MainWindow.canvas2.setBackground(Color.GREEN);
+                                        MainWindow.canvas2.repaint();
+                                    }
+                                    if(obj[3][3]==null){
+                                        MainWindow.canvas3.setBackground(Color.GRAY);
+                                        MainWindow.canvas3.repaint();
+                                    }else if(Float.valueOf((String)obj[3][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas3.setBackground(Color.RED);
+                                        MainWindow.canvas3.repaint();
+                                    }else{
+                                        MainWindow.canvas3.setBackground(Color.GREEN);
+                                        MainWindow.canvas3.repaint();
+                                    }
+                                    if(obj[4][3]==null){
+                                        MainWindow.canvas4.setBackground(Color.GRAY);
+                                        MainWindow.canvas4.repaint();
+                                    }else if(Float.valueOf((String)obj[4][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas4.setBackground(Color.RED);
+                                        MainWindow.canvas4.repaint();
+                                    }else{
+                                        MainWindow.canvas4.setBackground(Color.GREEN);
+                                        MainWindow.canvas4.repaint();
+                                    }
+                                    if(obj[5][3]==null){
+                                        MainWindow.canvas5.setBackground(Color.GRAY);
+                                        MainWindow.canvas5.repaint();
+                                    }else if(Float.valueOf((String)obj[5][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas5.setBackground(Color.RED);
+                                        MainWindow.canvas5.repaint();
+                                    }else{
+                                        MainWindow.canvas5.setBackground(Color.GREEN);
+                                        MainWindow.canvas5.repaint();
+                                    }
+                                    if(obj[6][3]==null){
+                                        MainWindow.canvas6.setBackground(Color.GRAY);
+                                        MainWindow.canvas6.repaint();
+                                    }else if(Float.valueOf((String)obj[6][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas6.setBackground(Color.RED);
+                                        MainWindow.canvas6.repaint();
+                                    }else{
+                                        MainWindow.canvas6.setBackground(Color.GREEN);
+                                        MainWindow.canvas6.repaint();
+                                    }
+                                    if(obj[7][3]==null){
+                                        MainWindow.canvas7.setBackground(Color.GRAY);
+                                        MainWindow.canvas7.repaint();
+                                    }else if(Float.valueOf((String)obj[7][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas7.setBackground(Color.RED);
+                                        MainWindow.canvas7.repaint();
+                                    }else{
+                                        MainWindow.canvas7.setBackground(Color.GREEN);
+                                        MainWindow.canvas7.repaint();
+                                    }
+                                    if(obj[8][3]==null){
+                                        MainWindow.canvas8.setBackground(Color.GRAY);
+                                        MainWindow.canvas8.repaint();
+                                    }else if(Float.valueOf((String)obj[8][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas8.setBackground(Color.RED);
+                                        MainWindow.canvas8.repaint();
+                                    }else{
+                                        MainWindow.canvas8.setBackground(Color.GREEN);
+                                        MainWindow.canvas8.repaint();
+                                    }
+                                    if(obj[9][3]==null){
+                                        MainWindow.canvas9.setBackground(Color.GRAY);
+                                        MainWindow.canvas9.repaint();
+                                    }else if(Float.valueOf((String)obj[9][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas9.setBackground(Color.RED);
+                                        MainWindow.canvas9.repaint();
+                                    }else{
+                                        MainWindow.canvas9.setBackground(Color.GREEN);
+                                        MainWindow.canvas9.repaint();
+                                    }
+                                    if(obj[10][3]==null){
+                                        MainWindow.canvas10.setBackground(Color.GRAY);
+                                        MainWindow.canvas10.repaint();
+                                    }else if(Float.valueOf((String)obj[10][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas10.setBackground(Color.RED);
+                                        MainWindow.canvas10.repaint();
+                                    }else{
+                                        MainWindow.canvas10.setBackground(Color.GREEN);
+                                        MainWindow.canvas10.repaint();
+                                    }
+                                    if(obj[11][3]==null){
+                                        MainWindow.canvas11.setBackground(Color.GRAY);
+                                        MainWindow.canvas11.repaint();
+                                    }else if(Float.valueOf((String)obj[11][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas11.setBackground(Color.RED);
+                                        MainWindow.canvas11.repaint();
+                                    }else{
+                                        MainWindow.canvas11.setBackground(Color.GREEN);
+                                        MainWindow.canvas11.repaint();
+                                    }
+                                    if(obj[12][3]==null){
+                                        MainWindow.canvas12.setBackground(Color.GRAY);
+                                        MainWindow.canvas12.repaint();
+                                    }else if(Float.valueOf((String)obj[12][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas12.setBackground(Color.RED);
+                                        MainWindow.canvas12.repaint();
+                                    }else{
+                                        MainWindow.canvas12.setBackground(Color.GREEN);
+                                        MainWindow.canvas12.repaint();
+                                    }
+                                    if(obj[13][3]==null){
+                                        MainWindow.canvas13.setBackground(Color.GRAY);
+                                        MainWindow.canvas13.repaint();
+                                    }else if(Float.valueOf((String)obj[13][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas13.setBackground(Color.RED);
+                                        MainWindow.canvas13.repaint();
+                                    }else{
+                                        MainWindow.canvas13.setBackground(Color.GREEN);
+                                        MainWindow.canvas13.repaint();
+                                    }
+                                    if(obj[14][3]==null){
+                                        MainWindow.canvas14.setBackground(Color.GRAY);
+                                        MainWindow.canvas14.repaint();
+                                    }else if(Float.valueOf((String)obj[14][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas14.setBackground(Color.RED);
+                                        MainWindow.canvas14.repaint();
+                                    }else{
+                                        MainWindow.canvas14.setBackground(Color.GREEN);
+                                        MainWindow.canvas14.repaint();
+                                    }
+                                    if(obj[15][3]==null){
+                                        MainWindow.canvas15.setBackground(Color.GRAY);
+                                        MainWindow.canvas15.repaint();
+                                    }else if(Float.valueOf((String)obj[15][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas15.setBackground(Color.RED);
+                                        MainWindow.canvas15.repaint();
+                                    }else{
+                                        MainWindow.canvas15.setBackground(Color.GREEN);
+                                        MainWindow.canvas15.repaint();
+                                    }
+                                    if(obj[16][3]==null){
+                                        MainWindow.canvas16.setBackground(Color.GRAY);
+                                        MainWindow.canvas16.repaint();
+                                    }else if(Float.valueOf((String)obj[16][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas16.setBackground(Color.RED);
+                                        MainWindow.canvas16.repaint();
+                                    }else{
+                                        MainWindow.canvas16.setBackground(Color.GREEN);
+                                        MainWindow.canvas16.repaint();
+                                    }
+                                    if(obj[17][3]==null){
+                                        MainWindow.canvas17.setBackground(Color.GRAY);
+                                        MainWindow.canvas17.repaint();
+                                    }else if(Float.valueOf((String)obj[17][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas17.setBackground(Color.RED);
+                                        MainWindow.canvas17.repaint();
+                                    }else{
+                                        MainWindow.canvas17.setBackground(Color.GREEN);
+                                        MainWindow.canvas17.repaint();
+                                    }
+                                    if(obj[18][3]==null){
+                                        MainWindow.canvas18.setBackground(Color.GRAY);
+                                        MainWindow.canvas18.repaint();
+                                    }else if(Float.valueOf((String)obj[18][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas18.setBackground(Color.RED);
+                                        MainWindow.canvas18.repaint();
+                                    }else{
+                                        MainWindow.canvas18.setBackground(Color.GREEN);
+                                        MainWindow.canvas18.repaint();
+                                    }
+                                    if(obj[19][3]==null){
+                                        MainWindow.canvas19.setBackground(Color.GRAY);
+                                        MainWindow.canvas19.repaint();
+                                    }else if(Float.valueOf((String)obj[19][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas19.setBackground(Color.RED);
+                                        MainWindow.canvas19.repaint();
+                                    }else{
+                                        MainWindow.canvas19.setBackground(Color.GREEN);
+                                        MainWindow.canvas19.repaint();
+                                    }
+                                    if(obj[20][3]==null){
+                                        MainWindow.canvas20.setBackground(Color.GRAY);
+                                        MainWindow.canvas20.repaint();
+                                    }else if(Float.valueOf((String)obj[20][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas20.setBackground(Color.RED);
+                                        MainWindow.canvas20.repaint();
+                                    }else{
+                                        MainWindow.canvas20.setBackground(Color.GREEN);
+                                        MainWindow.canvas20.repaint();
+                                    }
+                                    if(obj[21][3]==null){
+                                        MainWindow.canvas21.setBackground(Color.GRAY);
+                                        MainWindow.canvas21.repaint();
+                                    }else if(Float.valueOf((String)obj[21][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas21.setBackground(Color.RED);
+                                        MainWindow.canvas21.repaint();
+                                    }else{
+                                        MainWindow.canvas21.setBackground(Color.GREEN);
+                                        MainWindow.canvas21.repaint();
+                                    }
+                                    if(obj[22][3]==null){
+                                        MainWindow.canvas22.setBackground(Color.GRAY);
+                                        MainWindow.canvas22.repaint();
+                                    }else if(Float.valueOf((String)obj[22][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas22.setBackground(Color.RED);
+                                        MainWindow.canvas22.repaint();
+                                    }else{
+                                        MainWindow.canvas22.setBackground(Color.GREEN);
+                                        MainWindow.canvas22.repaint();
+                                    }
+                                    if(obj[23][3]==null){
+                                        MainWindow.canvas23.setBackground(Color.GRAY);
+                                        MainWindow.canvas23.repaint();
+                                    }else if(Float.valueOf((String)obj[23][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas23.setBackground(Color.RED);
+                                        MainWindow.canvas23.repaint();
+                                    }else{
+                                        MainWindow.canvas23.setBackground(Color.GREEN);
+                                        MainWindow.canvas23.repaint();
+                                    }
+                                    if(obj[24][3]==null){
+                                        MainWindow.canvas24.setBackground(Color.GRAY);
+                                        MainWindow.canvas24.repaint();
+                                    }else if(Float.valueOf((String)obj[24][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas24.setBackground(Color.RED);
+                                        MainWindow.canvas24.repaint();
+                                    }else{
+                                        MainWindow.canvas24.setBackground(Color.GREEN);
+                                        MainWindow.canvas24.repaint();
+                                    }
+                                    if(obj[25][3]==null){
+                                        MainWindow.canvas25.setBackground(Color.GRAY);
+                                        MainWindow.canvas25.repaint();
+                                    }else if(Float.valueOf((String)obj[25][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas25.setBackground(Color.RED);
+                                        MainWindow.canvas25.repaint();
+                                    }else{
+                                        MainWindow.canvas25.setBackground(Color.GREEN);
+                                        MainWindow.canvas25.repaint();
+                                    }
+                                    if(obj[26][3]==null){
+                                        MainWindow.canvas26.setBackground(Color.GRAY);
+                                        MainWindow.canvas26.repaint();
+                                    }else if(Float.valueOf((String)obj[26][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                                        MainWindow.canvas26.setBackground(Color.RED);
+                                        MainWindow.canvas26.repaint();
+                                    }else{
+                                        MainWindow.canvas26.setBackground(Color.GREEN);
+                                        MainWindow.canvas26.repaint();
+                                    }
+                            }
+
+                            }   
+                }
+            yyd++;
+            Object[] obj3 = null;
+             iterator123321 = list.iterator();
+            Statement mnt = getConn().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+            while(iterator123321.hasNext()){
+                 modobj=new ArrayList&lt;Object[][]&gt;();
+                mod=new ArrayList&lt;Float[]&gt;();
+                conf=new ArrayList&lt;String&gt;();
+                num=new ArrayList&lt;String&gt;();
+                xialiao=new ArrayList&lt;Float&gt;();
+                resource=new ArrayList&lt;String&gt;();;//原材料
+                String[][] agent = iterator123321.next();//存放同一种线型线径配线信息的数组
+                String lineFlag =  agent[0][5];//该数组的线型线径
+                String infQuery = "use information select * from message where 线型线径='"+lineFlag+"'" +"order by cast(第1段长度 as float)";
+                ResultSet result = mnt.executeQuery(infQuery);//存放符合上述线型线径信息的线辊结果集
+                int length = 0;
+                while(result.next()){
+                    length++;
+                }
+                String[] mHead = Constants.materialsHead;
+                String[][] infData = new String[length][Constants.materialsHead.length];
+                result.first();
+                result.previous();
+                int l=0;
+
+                while(result.next()){
+                        for(int col=0;col&lt;mHead.length;col++){
+                            infData[l][col]= result.getString(mHead[col]);//infData 存放所有第一段长度
+                        } 
+                        l++;
+                }
+                conf2=new String[agent.length];
+
+                    for(int ir1=0;ir1&lt;agent.length;ir1++){
+                    conf2[ir1]=agent[ir1][9];
+                    //System.out.println(agent[ir1][9]+"******");
+                }
+
+                    lo=new String[infData.length];
+                for(int ir=0;ir&lt;infData.length;ir++){
+                    lo[ir]=infData[ir][6];
+                }
+
+
+                num2=new String[agent.length];
+                for(int ir2=0;ir2&lt;agent.length;ir2++){
+                    num2[ir2]="1";
+                }
+             i5=lo.length;
+
+                 i4=conf2.length;
+                // System.out.println("*********************"+lo[0]);
+                 r=0;
+
+                    //**********&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;
+                    String[][] zong=new String[(int) Math.pow(2, i4)][i4];
+                    for(int i1=0;i1&lt;(int) Math.pow(2, i4);i1++){
+                        String t=Integer.toBinaryString(i1);//0
+                        char[] a1=t.toCharArray();//a1[0]=0
+                        char[] a2 = null; a2=new char[i4];
+                        int hj=a1.length;//1
+
+                        for(int nana=i4-1;nana&gt;=0;nana--){
+
+
+                        if(hj&gt;0){
+
+                            a2[nana]=a1[hj-1];
+                            }
+                        else{
+                            a2[nana]='0';
+                        }
+
+                        hj--;
+
+                        }
+
+
+                        for(int na=0;na&lt;i4;na++){
+
+                            zong[i1][na]=String.valueOf(a2[na]);
+
+                            System.out.print(zong[i1][na]+"\\");
+
+                        }
+                        System.out.println("");
+                    }
+
+                    //*&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;zong中存放所有可能
+                    mod=new ArrayList&lt;Float[]&gt;();
+                    for(;r&lt;i5;r++){
+
+                         for(int i1=0;i1&lt;zong.length;i1++){ 
+                             Float yu=Float.valueOf(lo[r]);
+                             for(int na=0;na&lt;i4;na++){
+                                yu= yu-Float.valueOf(conf2[na])*Float.valueOf(zong[i1][na]);
+                                System.out.println(conf2[na]+"*"+zong[i1][na]);
+                             }
+
+                             if(yu&gt;=0){
+                             Float[]    naa=new Float[i4+2];
+                                for(int ani=0;ani&lt;i4;ani++){
+                                    naa[ani]=Float.valueOf(zong[i1][ani]);
+                                }
+                                naa[i4]=yu;
+                                naa[i4+1]=Float.valueOf(lo[r]);
+
+                                     mod.add(naa);
+
+                             }  
+
+
+
+                         }                   
+                    }
+                    i3=0;
+                         modIt1=mod.iterator();
+                 Iterator modIt=mod.iterator();
+                 Iterator modIt2=mod.iterator();
+                 while(modIt.hasNext()){
+                     modIt.next();
+                     i3++;
+                 }
+                  System.out.println(i3+"%pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp");
+                     modobj.add(getData());
+
+
+                Iterator g=modobj.iterator(); 
+                Iterator g2=modobj.iterator(); 
+                int p=0;
+                while(g.hasNext()){
+                    g.next();
+                    p++;
+                }
+
+            //  System.out.println(+p);
+            obj2=new Object[i3][i4+2];
+                int pp=0;
+                while(g2.hasNext()){
+                    obj2= (Object[][]) g2.next();
+                pp++;
+                }
+
+                System.out.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"+obj2.length);
+
+                Float vn=(float) 10000;//最小余料长
+                Float vc=(float)10000;//对应先滚第一段长
+                 obj3=new Object[i4+2];
+                //System.out.println(obj2.length+"&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;&amp;**");
+                for(int v=0;v&lt;obj2.length;v++){
+
+                    int flag1=0;
+                    for(int kk=0;kk&lt;i4;kk++){
+
+                        if(Float.valueOf((float)obj2[v][kk])!=0){//所有的obj3都为0  则flag=0
+                            flag1=1;
+                        }
+
+
+                    }
+
+                    if(Float.valueOf((float)obj2[v][i4])&lt;vn&amp;&amp;flag1==1){
+                        vn=Float.valueOf((float)obj2[v][i4]);
+                        vc=Float.valueOf((float)obj2[v][i4+1]);
+                        obj3=obj2[v];
+
+                    }
+                }   
+                System.out.println(vn+"test**************************************");
+                System.out.println(vc+"test&amp;*************************************");
+                int flag=0;int ffla=0;
+                for(int kk=0;kk&lt;obj3.length-2;kk++){
+
+            try{    if(Float.valueOf((float)obj3[kk])==0){
+                        flag=1;
+                        ffla++;
+                    }}catch(Exception e3){
+                        continue ko;
+
+
+                    }
+
+                    System.out.print(obj3[kk]+"//");
+
+
+                }//先看所有线棍的第二段长度是否有料    如果有  再进行一遍算法
+
+
+            System.out.println(ffla+"OOOOOOOOOOOOOOOOOOOOOOOOOOPPPPPPPPPPPPPPPPPPPPPPP");
+
+
+                    Statement mnt1 = getConn().createStatement(ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
+                    //while(iterator111111.hasNext()){
+                        String write;
+                        if(selection == 1){
+                            ///////////////////////////////////////////////////////////////////////////////////////     
+
+                            ///////////////////////导出文件crop和二次下料文件的更改处            
+
+
+                                        write = "use information insert into crop(线辊号,断点位置,余料损耗,项目号,车型,车号,部位,线束号,线型线径,颜色1,颜色2,线号,全长)values(?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                                    }else{
+                                        write = "use information insert into secondCrop(线辊号,断点位置,余料损耗,项目号,车型,车号,部位,线束号,线型线径,颜色1,颜色2,线号,全长)values(?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                                    }//System.out.println(agent.length+"12321313132");
+
+                        String lineFlag1 = (String) agent[0][5];//该数组的线型线径
+                        System.out.println(agent[0][0]+"%$^");
+                        String infQuery1 = "use information select * from message where 线型线径='"+lineFlag1+"' and 第1段长度='"+obj3[obj3.length-1]+"'";
+
+                        ResultSet result1 = mnt1.executeQuery(infQuery1);//存放符合上述线型线径信息的线辊结果集
+
+                        String[] mHead1 = Constants.materialsHead;
+                        String[][] infData1 = new String[1][Constants.materialsHead.length];
+
+                        int hj=0;
+                        while(result1.next()){
+                            if(hj==0){
+                                for(int col=0;col&lt;mHead1.length;col++){
+                                    infData1[0][col]= result1.getString(mHead1[col]);
+                                } }
+                        hj++;
+
+                        }
+                    //  System.out.println(infData1[0][6]+"*********************!@#$**********");
+
+                            //从每一个线棍上下
+                        int ii3=0;int o1;int o2=0;
+                        String testr=infData[0][19];
+
+                            for( ;ii3&lt;agent.length;ii3++){//
+                            //  System.out.println(infData1[0][6]+"*********************!@#$**********");
+                           //   System.out.println(agent.length+"%$^^^^^^^^^^^^^");
+                            //  System.out.println((float) obj3[ii3]+"%$^^^test"); 
+                                if(Float.valueOf((float) obj3[ii3])==1&amp;&amp;flag==1){//
+                                    Connection connection = getConn();
+                                    connection.setAutoCommit(false);
+                                    PreparedStatement writeToCrop = getConn().prepareStatement(write);
+                                    o1=0;
+                                    writeToCrop.setString(++o1,(String) infData1[0][1]);//线辊号
+                                    writeToCrop.setString(++o1,"2");//断点位置为1
+                                    writeToCrop.setString(++o1,String.valueOf( obj3[obj3.length-2]));//不会产生余料
+                                //  System.out.println(agent[ii3][0]+"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~````````~~~~~~~~~~`~~~~~~~``````");
+                                    writeToCrop.setString(++o1,(String) agent[ii3][0]);//项目号
+                                    writeToCrop.setString(++o1,(String) agent[ii3][1]);//che
+                                    writeToCrop.setString(++o1,(String) agent[ii3][2]);//che
+                                    writeToCrop.setString(++o1,(String) agent[ii3][3]);//buwei
+                                    writeToCrop.setString(++o1,(String) agent[ii3][4]);//线束好
+                                    writeToCrop.setString(++o1,(String) agent[ii3][5]);//线径
+                                    writeToCrop.setString(++o1,(String) agent[ii3][6]);//眼1
+                                    writeToCrop.setString(++o1,(String) agent[ii3][7]);//眼2
+                                    writeToCrop.setString(++o1,(String) agent[ii3][8]);//线号
+                                    writeToCrop.setString(++o1,(String) agent[ii3][9]);////要切的线全场
+
+                                    infData1[0][6] = String.valueOf(Float.valueOf((String) infData1[0][6])-Float.valueOf((String) agent[ii3][9]));
+                                    testr = String.valueOf(Float.valueOf((String) testr)-Float.valueOf((String) agent[ii3][9]));
+
+                                    writeToCrop.addBatch(); 
+                                    o2++;
+                                   /* if(o2&gt;60){
+                                        writeToCrop.executeBatch();
+                                        connection.commit();
+                                        writeToCrop.clearBatch();
+                                        o2 =0;
+                                        continue;
+                                    }   */
+                                    writeToCrop.executeBatch();
+                                //  connection.commit();
+                                    writeToCrop.clearBatch();
+                                    writeToCrop.close();
+                                    System.gc();
+                                //  connection.setAutoCommit(false);
+                                    String update = null;
+                                    if(selection==1){
+                                     update = "use information delete from config where 序号="+agent[ii3][10];
+                                    }else if(selection==2){
+                                        update = "use information delete from replenish where 序号="+agent[ii3][10];
+                                    }  
+                                    Statement st1 = con.createStatement();
+                                    st1.execute(update);
+                                    st1.close();
+                                    connection.commit();
+                                     }
+                                if(Float.valueOf((float) obj3[ii3])==1&amp;&amp;flag==0){//
+                                    Connection connection = getConn();
+                                    connection.setAutoCommit(false);
+                                    PreparedStatement writeToCrop = getConn().prepareStatement(write);
+                                    o1=0;
+                                    writeToCrop.setString(++o1,(String) infData1[0][1]);//线辊号
+                                    writeToCrop.setString(++o1,"1");//断点位置为1
+                                    writeToCrop.setString(++o1,"0");//不会产生余料
+                                    //System.out.println(agent[ii3][0]+"~~~~~~");
+                                    writeToCrop.setString(++o1,(String) agent[ii3][0]);//项目号
+                                    writeToCrop.setString(++o1,(String) agent[ii3][1]);//che
+                                    writeToCrop.setString(++o1,(String) agent[ii3][2]);//che
+                                    writeToCrop.setString(++o1,(String) agent[ii3][3]);//buwei
+                                    writeToCrop.setString(++o1,(String) agent[ii3][4]);//线束好
+                                    writeToCrop.setString(++o1,(String) agent[ii3][5]);//线径
+                                    writeToCrop.setString(++o1,(String) agent[ii3][6]);//眼1
+                                    writeToCrop.setString(++o1,(String) agent[ii3][7]);//眼2
+                                    writeToCrop.setString(++o1,(String) agent[ii3][8]);//线号
+                                    writeToCrop.setString(++o1,(String) agent[ii3][9]);////要切的线全场
+
+                                    infData1[0][6] = String.valueOf(Float.valueOf((String) infData1[0][6])-Float.valueOf((String) agent[ii3][9]));
+                                    testr = String.valueOf(Float.valueOf((String) testr)-Float.valueOf((String) agent[ii3][9]));
+                                    writeToCrop.addBatch(); 
+                                    o2++;
+                                    if(o2&gt;60){
+                                        writeToCrop.executeBatch();
+                                        connection.commit();
+                                        writeToCrop.clearBatch();
+                                        o2 =0;
+                                        continue;
+                                    }   
+                                    writeToCrop.executeBatch();
+                                    writeToCrop.clearBatch();
+                                    writeToCrop.close();
+                                    System.gc();
+                                    String update = null;
+                                    if(selection==1){
+                                     update = "use information delete from config where 序号="+agent[ii3][10];
+                                    }else if(selection==2){
+                                        update = "use information delete from replenish where 序号="+agent[ii3][10];
+                                    }  
+                                    System.out.println(update);
+                                    Statement st1 = con.createStatement();
+                                    st1.execute(update);
+                                    st1.close();
+                                    connection.commit();
+                                    if(Float.valueOf(infData1[0][6])==0){
+
+
+                                        Connection connection1 = getConn();
+                                        connection1.setAutoCommit(false);
+                                            String yuliao = infData[0][6];
+                                            infData[0][6] = infData[0][8];
+                                            infData[0][8] = infData[0][10];
+                                            infData[0][10] = infData[0][12];
+                                            infData[0][12] = infData[0][14];
+                                            infData[0][14] = infData[0][16];
+                                            infData[0][16] = "0";
+
+                                            String cunliang=String.valueOf(Float.valueOf((String)infData[0][6])+Float.valueOf((String)infData[0][8])+Float.valueOf((String)infData[0][10])+Float.valueOf((String)infData[0][12])
+                                                    +Float.valueOf((String)infData[0][14])+Float.valueOf((String)infData[0][16]));
+                                            String update1 = "use information update message set 第1段长度="+infData[0][6]+","+"第2段长度="+infData[0][8]+","+"第3段长度="+infData[0][10]+","+
+                                            "第4段长度="+infData[0][12]+","+"第5段长度="+infData[0][14]+","+"第6段长度="+infData[0][16]+","+"存量="+cunliang+" where 线辊号="+infData[0][1];
+                                    Statement st11 = con.createStatement();
+                                    st11.execute(update1);
+                                    connection1.commit();
+
+                                    }
+
+                                     }
+                                    }
+                        if(flag == 1){
+                            Connection connection = getConn();
+                            connection.setAutoCommit(false);
+                                String yuliao = infData1[0][6];
+                                infData1[0][6] = infData1[0][8];
+                                infData1[0][8] = infData1[0][10];
+                                infData1[0][10] = infData1[0][12];
+                                infData1[0][12] = infData1[0][14];
+                                infData1[0][14] = infData1[0][16];
+                                infData1[0][16] = "0";
+
+                                String cunliang=String.valueOf(Float.valueOf((String)infData1[0][6])+Float.valueOf((String)infData1[0][8])+Float.valueOf((String)infData1[0][10])+Float.valueOf((String)infData1[0][12])
+                                        +Float.valueOf((String)infData1[0][14])+Float.valueOf((String)infData1[0][16]));
+                                String update = "use information update message set 第1段长度="+infData1[0][6]+","+"第2段长度="+infData1[0][8]+","+"第3段长度="+infData1[0][10]+","+
+                                "第4段长度="+infData1[0][12]+","+"第5段长度="+infData1[0][14]+","+"第6段长度="+infData1[0][16]+","+"存量="+cunliang+" where 线辊号="+infData1[0][1];
+                        Statement st1 = con.createStatement();
+                        st1.execute(update);
+                        connection.commit();
+                                System.out.println(update);
+
+                    }else{
+                        Connection connection = getConn();
+                        connection.setAutoCommit(false);
+                        String cunliang=String.valueOf(Float.valueOf((String)infData1[0][6])+Float.valueOf((String)infData1[0][8])+Float.valueOf((String)infData1[0][10])+Float.valueOf((String)infData1[0][12])
+                                +Float.valueOf((String)infData1[0][14])+Float.valueOf((String)infData1[0][16]));
+                        //String testr=String.valueOf(Float.valueOf((String)infData1[0][19]-)
+                        String update = "use information update message set 第1段长度='"+infData1[0][6]+"'"+
+                                ","+" 存量='"+cunliang+"' where 线辊号="+infData1[0][1];
+                        Statement st1 = con.createStatement();
+                        st1.execute(update);
+                        connection.commit();
+                    }
+                    //  //相同线型线径的下完
+
+
+
+
+
+                    //****************************************************************************************************
+                /*  if(ffla ==obj3.length-2 ){
+
+                        //记录该条配线信息，等本次下料完成更换线辊后再进行二次下料
+                        for(int jf=0;jf&lt;agent.length;jf++){
+                        String replenish = "use information insert into replenish values("+"N'"+agent[jf][0]+"',"+"N'"+agent[jf][1]+"',"
+                                +"N'"+agent[jf][2]+"',"+"N'"+agent[jf][3]+"',"+"N'"+agent[jf][4]+"',"+"N'"+agent[jf][5]+"',"+"N'"+agent[jf][6]+"',"+
+                                        "N'"+agent[jf][7]+"',"+"N'"+agent[jf][8]+"',"+"N'"+agent[jf][9]+"',"+"N'"+xuhaore+"')";
+                        xuhaore++;
+                        System.out.println(replenish+"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
+                        Statement rep = this.getConn().createStatement();
+                        rep.execute(replenish);
+                        rep.close();
+                        failList.add(agent[jf][5]);
+                        con.setAutoCommit(false);
+                         String update = "use information delete from config where 序号="+agent[jf][10];
+                         System.out.println(update);
+                            Statement st1 = con.createStatement();
+                            st1.execute(update);
+                            st1.close();
+                            con.commit();
+                            }
+                          //  continue;////////////////////////////////////////////////////////////////
+                    }
+                    */
+                //for
+            //for   线型线径
+
+
+
+
+        }//while所有下完一遍
+            String update112 = null;
+            if(selection==1){
+             update112 = "use information select* from config";
+            }else if(selection==2){
+                 update112 = "use information select* from replenish";
+            }
+            System.out.println(update112);
+            Statement st11 = con.createStatement();
+            ResultSet rrs=
+            st11.executeQuery(update112); 
+            int kkk=0;
+            while(rrs.next()){
+                kkk++;
+            }
+            if(kkk==0){
+                kl=1;
+            }
+            rrs.close();
+            st11.close();
+
+
+
+        }
+        //System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+        Object[][] obj=getData2();
+         if(obj[0][3]==null){
+                MainWindow.canvas0.setBackground(Color.GRAY);
+                MainWindow.canvas0.repaint();
+            }else if(Float.valueOf((String)obj[0][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas0.setBackground(Color.RED);
+                MainWindow.canvas0.repaint();
+            }else{
+                MainWindow.canvas0.setBackground(Color.GREEN);
+                MainWindow.canvas0.repaint();
+            }
+            if(obj[1][3]==null){
+                MainWindow.canvas1.setBackground(Color.GRAY);
+                MainWindow.canvas1.repaint();
+            }else if(Float.valueOf((String)obj[1][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas1.setBackground(Color.RED);
+                MainWindow.canvas1.repaint();
+            }else{
+                MainWindow.canvas1.setBackground(Color.GREEN);
+                MainWindow.canvas1.repaint();
+            }
+            if(obj[2][3]==null){
+                MainWindow.canvas2.setBackground(Color.GRAY);
+                MainWindow.canvas2.repaint();
+            }else if(Float.valueOf((String)obj[2][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas2.setBackground(Color.RED);
+                MainWindow.canvas2.repaint();
+            }else{
+                MainWindow.canvas2.setBackground(Color.GREEN);
+                MainWindow.canvas2.repaint();
+            }
+            if(obj[3][3]==null){
+                MainWindow.canvas3.setBackground(Color.GRAY);
+                MainWindow.canvas3.repaint();
+            }else if(Float.valueOf((String)obj[3][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas3.setBackground(Color.RED);
+                MainWindow.canvas3.repaint();
+            }else{
+                MainWindow.canvas3.setBackground(Color.GREEN);
+                MainWindow.canvas3.repaint();
+            }
+            if(obj[4][3]==null){
+                MainWindow.canvas4.setBackground(Color.GRAY);
+                MainWindow.canvas4.repaint();
+            }else if(Float.valueOf((String)obj[4][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas4.setBackground(Color.RED);
+                MainWindow.canvas4.repaint();
+            }else{
+                MainWindow.canvas4.setBackground(Color.GREEN);
+                MainWindow.canvas4.repaint();
+            }
+            if(obj[5][3]==null){
+                MainWindow.canvas5.setBackground(Color.GRAY);
+                MainWindow.canvas5.repaint();
+            }else if(Float.valueOf((String)obj[5][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas5.setBackground(Color.RED);
+                MainWindow.canvas5.repaint();
+            }else{
+                MainWindow.canvas5.setBackground(Color.GREEN);
+                MainWindow.canvas5.repaint();
+            }
+            if(obj[6][3]==null){
+                MainWindow.canvas6.setBackground(Color.GRAY);
+                MainWindow.canvas6.repaint();
+            }else if(Float.valueOf((String)obj[6][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas6.setBackground(Color.RED);
+                MainWindow.canvas6.repaint();
+            }else{
+                MainWindow.canvas6.setBackground(Color.GREEN);
+                MainWindow.canvas6.repaint();
+            }
+            if(obj[7][3]==null){
+                MainWindow.canvas7.setBackground(Color.GRAY);
+                MainWindow.canvas7.repaint();
+            }else if(Float.valueOf((String)obj[7][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas7.setBackground(Color.RED);
+                MainWindow.canvas7.repaint();
+            }else{
+                MainWindow.canvas7.setBackground(Color.GREEN);
+                MainWindow.canvas7.repaint();
+            }
+            if(obj[8][3]==null){
+                MainWindow.canvas8.setBackground(Color.GRAY);
+                MainWindow.canvas8.repaint();
+            }else if(Float.valueOf((String)obj[8][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas8.setBackground(Color.RED);
+                MainWindow.canvas8.repaint();
+            }else{
+                MainWindow.canvas8.setBackground(Color.GREEN);
+                MainWindow.canvas8.repaint();
+            }
+            if(obj[9][3]==null){
+                MainWindow.canvas9.setBackground(Color.GRAY);
+                MainWindow.canvas9.repaint();
+            }else if(Float.valueOf((String)obj[9][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas9.setBackground(Color.RED);
+                MainWindow.canvas9.repaint();
+            }else{
+                MainWindow.canvas9.setBackground(Color.GREEN);
+                MainWindow.canvas9.repaint();
+            }
+            if(obj[10][3]==null){
+                MainWindow.canvas10.setBackground(Color.GRAY);
+                MainWindow.canvas10.repaint();
+            }else if(Float.valueOf((String)obj[10][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas10.setBackground(Color.RED);
+                MainWindow.canvas10.repaint();
+            }else{
+                MainWindow.canvas10.setBackground(Color.GREEN);
+                MainWindow.canvas10.repaint();
+            }
+            if(obj[11][3]==null){
+                MainWindow.canvas11.setBackground(Color.GRAY);
+                MainWindow.canvas11.repaint();
+            }else if(Float.valueOf((String)obj[11][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas11.setBackground(Color.RED);
+                MainWindow.canvas11.repaint();
+            }else{
+                MainWindow.canvas11.setBackground(Color.GREEN);
+                MainWindow.canvas11.repaint();
+            }
+            if(obj[12][3]==null){
+                MainWindow.canvas12.setBackground(Color.GRAY);
+                MainWindow.canvas12.repaint();
+            }else if(Float.valueOf((String)obj[12][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas12.setBackground(Color.RED);
+                MainWindow.canvas12.repaint();
+            }else{
+                MainWindow.canvas12.setBackground(Color.GREEN);
+                MainWindow.canvas12.repaint();
+            }
+            if(obj[13][3]==null){
+                MainWindow.canvas13.setBackground(Color.GRAY);
+                MainWindow.canvas13.repaint();
+            }else if(Float.valueOf((String)obj[13][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas13.setBackground(Color.RED);
+                MainWindow.canvas13.repaint();
+            }else{
+                MainWindow.canvas13.setBackground(Color.GREEN);
+                MainWindow.canvas13.repaint();
+            }
+            if(obj[14][3]==null){
+                MainWindow.canvas14.setBackground(Color.GRAY);
+                MainWindow.canvas14.repaint();
+            }else if(Float.valueOf((String)obj[14][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas14.setBackground(Color.RED);
+                MainWindow.canvas14.repaint();
+            }else{
+                MainWindow.canvas14.setBackground(Color.GREEN);
+                MainWindow.canvas14.repaint();
+            }
+            if(obj[15][3]==null){
+                MainWindow.canvas15.setBackground(Color.GRAY);
+                MainWindow.canvas15.repaint();
+            }else if(Float.valueOf((String)obj[15][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas15.setBackground(Color.RED);
+                MainWindow.canvas15.repaint();
+            }else{
+                MainWindow.canvas15.setBackground(Color.GREEN);
+                MainWindow.canvas15.repaint();
+            }
+            if(obj[16][3]==null){
+                MainWindow.canvas16.setBackground(Color.GRAY);
+                MainWindow.canvas16.repaint();
+            }else if(Float.valueOf((String)obj[16][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas16.setBackground(Color.RED);
+                MainWindow.canvas16.repaint();
+            }else{
+                MainWindow.canvas16.setBackground(Color.GREEN);
+                MainWindow.canvas16.repaint();
+            }
+            if(obj[17][3]==null){
+                MainWindow.canvas17.setBackground(Color.GRAY);
+                MainWindow.canvas17.repaint();
+            }else if(Float.valueOf((String)obj[17][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas17.setBackground(Color.RED);
+                MainWindow.canvas17.repaint();
+            }else{
+                MainWindow.canvas17.setBackground(Color.GREEN);
+                MainWindow.canvas17.repaint();
+            }
+            if(obj[18][3]==null){
+                MainWindow.canvas18.setBackground(Color.GRAY);
+                MainWindow.canvas18.repaint();
+            }else if(Float.valueOf((String)obj[18][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas18.setBackground(Color.RED);
+                MainWindow.canvas18.repaint();
+            }else{
+                MainWindow.canvas18.setBackground(Color.GREEN);
+                MainWindow.canvas18.repaint();
+            }
+            if(obj[19][3]==null){
+                MainWindow.canvas19.setBackground(Color.GRAY);
+                MainWindow.canvas19.repaint();
+            }else if(Float.valueOf((String)obj[19][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas19.setBackground(Color.RED);
+                MainWindow.canvas19.repaint();
+            }else{
+                MainWindow.canvas19.setBackground(Color.GREEN);
+                MainWindow.canvas19.repaint();
+            }
+            if(obj[20][3]==null){
+                MainWindow.canvas20.setBackground(Color.GRAY);
+                MainWindow.canvas20.repaint();
+            }else if(Float.valueOf((String)obj[20][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas20.setBackground(Color.RED);
+                MainWindow.canvas20.repaint();
+            }else{
+                MainWindow.canvas20.setBackground(Color.GREEN);
+                MainWindow.canvas20.repaint();
+            }
+            if(obj[21][3]==null){
+                MainWindow.canvas21.setBackground(Color.GRAY);
+                MainWindow.canvas21.repaint();
+            }else if(Float.valueOf((String)obj[21][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas21.setBackground(Color.RED);
+                MainWindow.canvas21.repaint();
+            }else{
+                MainWindow.canvas21.setBackground(Color.GREEN);
+                MainWindow.canvas21.repaint();
+            }
+            if(obj[22][3]==null){
+                MainWindow.canvas22.setBackground(Color.GRAY);
+                MainWindow.canvas22.repaint();
+            }else if(Float.valueOf((String)obj[22][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas22.setBackground(Color.RED);
+                MainWindow.canvas22.repaint();
+            }else{
+                MainWindow.canvas22.setBackground(Color.GREEN);
+                MainWindow.canvas22.repaint();
+            }
+            if(obj[23][3]==null){
+                MainWindow.canvas23.setBackground(Color.GRAY);
+                MainWindow.canvas23.repaint();
+            }else if(Float.valueOf((String)obj[23][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas23.setBackground(Color.RED);
+                MainWindow.canvas23.repaint();
+            }else{
+                MainWindow.canvas23.setBackground(Color.GREEN);
+                MainWindow.canvas23.repaint();
+            }
+            if(obj[24][3]==null){
+                MainWindow.canvas24.setBackground(Color.GRAY);
+                MainWindow.canvas24.repaint();
+            }else if(Float.valueOf((String)obj[24][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas24.setBackground(Color.RED);
+                MainWindow.canvas24.repaint();
+            }else{
+                MainWindow.canvas24.setBackground(Color.GREEN);
+                MainWindow.canvas24.repaint();
+            }
+            if(obj[25][3]==null){
+                MainWindow.canvas25.setBackground(Color.GRAY);
+                MainWindow.canvas25.repaint();
+            }else if(Float.valueOf((String)obj[25][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas25.setBackground(Color.RED);
+                MainWindow.canvas25.repaint();
+            }else{
+                MainWindow.canvas25.setBackground(Color.GREEN);
+                MainWindow.canvas25.repaint();
+            }
+            if(obj[26][3]==null){
+                MainWindow.canvas26.setBackground(Color.GRAY);
+                MainWindow.canvas26.repaint();
+            }else if(Float.valueOf((String)obj[26][19])&lt;Float.valueOf(WarningPane.getWarningData())){
+                MainWindow.canvas26.setBackground(Color.RED);
+                MainWindow.canvas26.repaint();
+            }else{
+                MainWindow.canvas26.setBackground(Color.GREEN);
+                MainWindow.canvas26.repaint();
+            }
+
+            System.out.println("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG"+failList.size());
+
+            //while(iterator123321.hasNext())   
+
+    }catch(SQLException e){
+
+    }
+    if(failList.size()&gt;0){
+        JOptionPane.showMessageDialog(null, "共有"+failList.size()/2+"条配线数据没有下料成功,请在本次下料完成后更换相应线辊，根据下料失败记录表进行二次下料!!");
+    }
+}
+</code></pre>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/chaocong0723/Bolg">大线排料项目的核心代码（包含了分支界定算法的实现）</a> is maintained by <a href="https://github.com/chaocong0723">chaocong0723</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
